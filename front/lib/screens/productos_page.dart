@@ -13,6 +13,7 @@ class _ProductosPageState extends State<ProductosPage> {
   // FIX DEFINITIVO: inicializar directamente sin setState en initState
   Future<List<Producto>> _futureProductos = Future.value([]);
   String _busqueda = '';
+  String _categoriaSeleccionada = 'Todas';
 
   @override
   void initState() {
@@ -31,7 +32,8 @@ class _ProductosPageState extends State<ProductosPage> {
     final ok = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-          builder: (_) => AgregarProductoPage(producto: producto)),
+        builder: (_) => AgregarProductoPage(producto: producto),
+      ),
     );
     if (ok == true) _cargar();
   }
@@ -44,12 +46,13 @@ class _ProductosPageState extends State<ProductosPage> {
         content: Text("¿Eliminar \"${p.nombre}\"?"),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancelar")),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancelar"),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("Eliminar",
-                  style: TextStyle(color: Colors.red))),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
@@ -66,27 +69,63 @@ class _ProductosPageState extends State<ProductosPage> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(children: [
-            Expanded(
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: "Buscar producto...",
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: "Buscar producto...",
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onChanged: (v) => setState(() => _busqueda = v.toLowerCase()),
                 ),
-                onChanged: (v) => setState(() => _busqueda = v.toLowerCase()),
               ),
-            ),
-            const SizedBox(width: 12),
-            FilledButton.tonalIcon(
-              onPressed: () => _irFormulario(),
-              icon: const Icon(Icons.add),
-              label: const Text("Nuevo"),
-            ),
-          ]),
+              const SizedBox(width: 12),
+              FilledButton.tonalIcon(
+                onPressed: () => _irFormulario(),
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text("Nuevo"),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: FutureBuilder<List<Producto>>(
+            future: _futureProductos,
+            builder: (ctx, snapCategorias) {
+              final productos = snapCategorias.data ?? [];
+              final categorias = [
+                'Todas',
+                ...{for (final p in productos) p.categoria},
+              ];
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: categorias.map((categoria) {
+                  return ChoiceChip(
+                    label: Text(categoria),
+                    selected: _categoriaSeleccionada == categoria,
+                    selectedColor: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _categoriaSeleccionada = categoria;
+                        });
+                      }
+                    },
+                  );
+                }).toList(),
+              );
+            },
+          ),
         ),
         Expanded(
           child: FutureBuilder<List<Producto>>(
@@ -97,23 +136,37 @@ class _ProductosPageState extends State<ProductosPage> {
               }
               if (snap.hasError) {
                 return Center(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.error_outline,
-                        color: Colors.red, size: 40),
-                    const SizedBox(height: 8),
-                    Text("${snap.error}"),
-                    TextButton(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 40,
+                      ),
+                      const SizedBox(height: 8),
+                      Text("${snap.error}"),
+                      TextButton(
                         onPressed: _cargar,
-                        child: const Text("Reintentar")),
-                  ]),
+                        child: const Text("Reintentar"),
+                      ),
+                    ],
+                  ),
                 );
               }
               var lista = snap.data ?? [];
+              if (_categoriaSeleccionada != 'Todas') {
+                lista = lista
+                    .where((p) => p.categoria == _categoriaSeleccionada)
+                    .toList();
+              }
               if (_busqueda.isNotEmpty) {
                 lista = lista
-                    .where((p) =>
-                        p.nombre.toLowerCase().contains(_busqueda) ||
-                        p.categoria.toLowerCase().contains(_busqueda))
+                    .where(
+                      (p) =>
+                          p.nombre.toLowerCase().contains(_busqueda) ||
+                          p.categoria.toLowerCase().contains(_busqueda),
+                    )
                     .toList();
               }
               if (lista.isEmpty) {
@@ -126,39 +179,65 @@ class _ProductosPageState extends State<ProductosPage> {
                 itemBuilder: (ctx, i) {
                   final p = lista[i];
                   return Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 1.5,
                     child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: cs.primaryContainer,
-                        child: Text(p.nombre[0].toUpperCase(),
-                            style: TextStyle(
-                                color: cs.primary,
-                                fontWeight: FontWeight.bold)),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                      title: Text(p.nombre,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w600)),
+                      leading: CircleAvatar(
+                        radius: 24,
+                        backgroundColor: cs.primaryContainer,
+                        child: Icon(
+                          Icons.shopping_bag_outlined,
+                          color: cs.primary,
+                          size: 24,
+                        ),
+                      ),
+                      title: Text(
+                        p.nombre,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                       subtitle: Text(
-                          "${p.categoria}  ·  \$${p.precio.toStringAsFixed(2)}"),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+                        "${p.categoria} · \$${p.precio.toStringAsFixed(2)}",
+                      ),
+                      trailing: Wrap(
+                        spacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Chip(
-                            label: Text("${p.stock}"),
-                            visualDensity: VisualDensity.compact,
-                            backgroundColor: p.stock > 5
-                                ? Colors.green.shade100
-                                : p.stock > 0
-                                    ? Colors.orange.shade100
-                                    : Colors.red.shade100,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: p.stock > 5
+                                  ? Colors.green.shade100
+                                  : p.stock > 0
+                                  ? Colors.orange.shade100
+                                  : Colors.red.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              "${p.stock}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.edit_outlined),
+                            icon: const Icon(Icons.edit_rounded),
                             tooltip: "Editar",
                             onPressed: () => _irFormulario(producto: p),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                color: Colors.red),
+                            icon: const Icon(
+                              Icons.delete_forever,
+                              color: Colors.redAccent,
+                            ),
                             tooltip: "Eliminar",
                             onPressed: () => _eliminar(p),
                           ),

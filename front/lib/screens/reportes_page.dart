@@ -1,7 +1,43 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/venta.dart';
+import '../models/producto.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+enum _PeriodoReporte { all, ultimos7, ultimos30 }
+
+class _ReportesData {
+  final List<Venta> ventas;
+  final List<Producto> productos;
+
+  _ReportesData({required this.ventas, required this.productos});
+}
+
+class _ProductoBajaRotacion {
+  final String nombre;
+  final String categoria;
+  final int stock;
+  final int vendido;
+
+  _ProductoBajaRotacion({
+    required this.nombre,
+    required this.categoria,
+    required this.stock,
+    required this.vendido,
+  });
+}
+
+class _CategoriaReporte {
+  final String categoria;
+  final double total;
+  final int cantidad;
+
+  _CategoriaReporte({
+    required this.categoria,
+    required this.total,
+    required this.cantidad,
+  });
+}
 
 class ReportesPage extends StatefulWidget {
   const ReportesPage({super.key});
@@ -10,19 +46,27 @@ class ReportesPage extends StatefulWidget {
 }
 
 class _ReportesPageState extends State<ReportesPage> {
-  // FIX DEFINITIVO: inicializar directamente sin setState en initState
-  Future<List<Venta>> _futureVentas = Future.value([]);
+  late Future<_ReportesData> _futureReportes;
+  _PeriodoReporte _periodoSeleccionado = _PeriodoReporte.all;
 
   @override
   void initState() {
     super.initState();
-    // Asignación directa — sin setState, sin async
-    _futureVentas = ApiService.obtenerHistorial();
+    _cargar();
   }
 
   void _cargar() {
     setState(() {
-      _futureVentas = ApiService.obtenerHistorial();
+      _futureReportes =
+          Future.wait([
+            ApiService.obtenerHistorial(),
+            ApiService.obtenerProductos(),
+          ]).then(
+            (listas) => _ReportesData(
+              ventas: listas[0] as List<Venta>,
+              productos: listas[1] as List<Producto>,
+            ),
+          );
     });
   }
 
@@ -39,6 +83,26 @@ class _ReportesPageState extends State<ReportesPage> {
     }
   }
 
+  List<Venta> _filtrarPorPeriodo(List<Venta> ventas, _PeriodoReporte periodo) {
+    if (periodo == _PeriodoReporte.all) return ventas;
+    final ahora = DateTime.now();
+    final desde = ahora.subtract(
+      Duration(days: periodo == _PeriodoReporte.ultimos7 ? 7 : 30),
+    );
+    return ventas.where((v) => v.fecha.isAfter(desde)).toList();
+  }
+
+  String _textoPeriodo(_PeriodoReporte periodo) {
+    switch (periodo) {
+      case _PeriodoReporte.ultimos7:
+        return 'Últimos 7 días';
+      case _PeriodoReporte.ultimos30:
+        return 'Últimos 30 días';
+      default:
+        return 'Todo el período';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -49,11 +113,12 @@ class _ReportesPageState extends State<ReportesPage> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
             children: [
-              Text("Historial de Ventas",
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                "Analítica de Reportes",
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
               const Spacer(),
               OutlinedButton.icon(
                 onPressed: _exportar,
@@ -62,16 +127,17 @@ class _ReportesPageState extends State<ReportesPage> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                  tooltip: "Recargar",
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _cargar),
+                tooltip: "Recargar",
+                icon: const Icon(Icons.refresh),
+                onPressed: _cargar,
+              ),
             ],
           ),
         ),
         const Divider(height: 1),
         Expanded(
-          child: FutureBuilder<List<Venta>>(
-            future: _futureVentas,
+          child: FutureBuilder<_ReportesData>(
+            future: _futureReportes,
             builder: (ctx, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -79,143 +145,79 @@ class _ReportesPageState extends State<ReportesPage> {
               if (snap.hasError) {
                 return Center(child: Text("Error: ${snap.error}"));
               }
-              final ventas = snap.data ?? [];
-              if (ventas.isEmpty) {
+              final data = snap.data!;
+              final ventas = data.ventas;
+              final productos = data.productos;
+              final ventasPeriod = _filtrarPorPeriodo(
+                ventas,
+                _periodoSeleccionado,
+              );
+              final totalGeneral = ventas.fold(0.0, (s, v) => s + v.total);
+              final topProductos = _calcularTopProductos(ventas);
+              final categorias = _calcularCategorias(ventas, productos);
+              final bajaRotacion = _calcularProductosBajaRotacion(
+                ventas,
+                productos,
+              );
+
+              if (ventas.isEmpty && productos.isEmpty) {
                 return Center(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.receipt_long_outlined,
-                        size: 56, color: cs.onSurface.withOpacity(.3)),
-                    const SizedBox(height: 12),
-                    Text("Sin ventas registradas",
-                        style:
-                            TextStyle(color: cs.onSurface.withOpacity(.4))),
-                  ]),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.bar_chart_outlined,
+                        size: 56,
+                        color: cs.onSurface.withOpacity(.3),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        "Aún no hay datos de ventas ni productos",
+                        style: TextStyle(color: cs.onSurface.withOpacity(.4)),
+                      ),
+                    ],
+                  ),
                 );
               }
 
-              final totalGeneral =
-                  ventas.fold(0.0, (s, v) => s + v.total);
-
-              return Column(
+              return ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(children: [
+                  Row(
+                    children: [
                       _ResumenCard(
-                          label: "Total ventas",
-                          valor: "${ventas.length}",
-                          icono: Icons.receipt_outlined,
-                          color: cs.primary),
+                        label: "Ventas registradas",
+                        valor: "${ventas.length}",
+                        icono: Icons.receipt_long,
+                        color: cs.primary,
+                      ),
                       const SizedBox(width: 12),
                       _ResumenCard(
-                          label: "Ingresos totales",
-                          valor: "\$${totalGeneral.toStringAsFixed(2)}",
-                          icono: Icons.attach_money,
-                          color: Colors.green),
-                    ]),
+                        label: "Ingresos totales",
+                        valor: "\$${totalGeneral.toStringAsFixed(2)}",
+                        icono: Icons.attach_money,
+                        color: Colors.green,
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: ventas.length,
-                      itemBuilder: (ctx, i) {
-                        final v = ventas[i];
-                        final fecha =
-                            "${v.fecha.day}/${v.fecha.month}/${v.fecha.year}  "
-                            "${v.fecha.hour.toString().padLeft(2, '0')}:"
-                            "${v.fecha.minute.toString().padLeft(2, '0')}";
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ExpansionTile(
-                            leading: CircleAvatar(
-                              backgroundColor: cs.primaryContainer,
-                              child: Text("#${v.id}",
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: cs.primary,
-                                      fontWeight: FontWeight.bold)),
-                            ),
-                            title: Text(
-                                "\$${v.total.toStringAsFixed(2)}",
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            subtitle: Text(fecha),
-                            trailing: Chip(
-                              label: Text("${v.items.length} art."),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            children: [
-                              Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                                child: Table(
-                                  columnWidths: const {
-                                    0: FlexColumnWidth(3),
-                                    1: FlexColumnWidth(1),
-                                    2: FlexColumnWidth(2),
-                                  },
-                                  children: [
-                                    TableRow(
-                                      decoration: BoxDecoration(
-                                          color: cs.surfaceVariant
-                                              .withOpacity(.5)),
-                                      children: const [
-                                        Padding(
-                                            padding: EdgeInsets.all(6),
-                                            child: Text("Producto",
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    fontSize: 12))),
-                                        Padding(
-                                            padding: EdgeInsets.all(6),
-                                            child: Text("Cant.",
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    fontSize: 12))),
-                                        Padding(
-                                            padding: EdgeInsets.all(6),
-                                            child: Text("Subtotal",
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    fontSize: 12))),
-                                      ],
-                                    ),
-                                    ...v.items.map((item) => TableRow(
-                                          children: [
-                                            Padding(
-                                                padding:
-                                                    const EdgeInsets.all(6),
-                                                child: Text(item.nombre,
-                                                    style: const TextStyle(
-                                                        fontSize: 12))),
-                                            Padding(
-                                                padding:
-                                                    const EdgeInsets.all(6),
-                                                child: Text(
-                                                    "${item.cantidad}",
-                                                    style: const TextStyle(
-                                                        fontSize: 12))),
-                                            Padding(
-                                                padding:
-                                                    const EdgeInsets.all(6),
-                                                child: Text(
-                                                    "\$${item.subtotal.toStringAsFixed(2)}",
-                                                    style: const TextStyle(
-                                                        fontSize: 12))),
-                                          ],
-                                        )),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle("Ventas por período"),
+                  _buildPeriodoChips(),
+                  const SizedBox(height: 12),
+                  _buildVentasPorPeriodo(ventasPeriod),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle("Productos más vendidos"),
+                  _buildTopProductos(topProductos),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle("Ventas por categoría"),
+                  _buildVentasPorCategoria(categorias),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle("Productos de baja rotación"),
+                  _buildProductosBajaRotacion(bajaRotacion),
+                  const SizedBox(height: 24),
                 ],
               );
             },
@@ -223,6 +225,290 @@ class _ReportesPageState extends State<ReportesPage> {
         ),
       ],
     );
+  }
+
+  Widget _buildSectionTitle(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildPeriodoChips() {
+    return Wrap(
+      spacing: 8,
+      children: _PeriodoReporte.values.map((periodo) {
+        return ChoiceChip(
+          label: Text(_textoPeriodo(periodo)),
+          selected: _periodoSeleccionado == periodo,
+          onSelected: (selected) {
+            if (selected) {
+              setState(() {
+                _periodoSeleccionado = periodo;
+              });
+            }
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildVentasPorPeriodo(List<Venta> ventasPeriod) {
+    final ingresosPorDia = <String, double>{};
+    final cantidadesPorDia = <String, int>{};
+
+    for (final venta in ventasPeriod) {
+      final fecha = venta.fecha;
+      final etiqueta = '${fecha.day}/${fecha.month}';
+      ingresosPorDia[etiqueta] = (ingresosPorDia[etiqueta] ?? 0) + venta.total;
+      cantidadesPorDia[etiqueta] = (cantidadesPorDia[etiqueta] ?? 0) + 1;
+    }
+
+    if (ventasPeriod.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Text('No hay ventas en este período.'),
+      );
+    }
+
+    final dias = ingresosPorDia.keys.toList();
+    final totalIngresosDia = ingresosPorDia.values.fold(0.0, (a, b) => a + b);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            'Mostrando ${ventasPeriod.length} ventas para ${_textoPeriodo(_periodoSeleccionado)}',
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...dias.map((dia) {
+          final ingresos = ingresosPorDia[dia]!;
+          final cantidad = cantidadesPorDia[dia]!;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$dia · ${cantidad} ventas · \$${ingresos.toStringAsFixed(2)}',
+                ),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: totalIngresosDia > 0 ? ingresos / totalIngresosDia : 0,
+                  minHeight: 6,
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildTopProductos(List<MapEntry<String, int>> topProductos) {
+    if (topProductos.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Text('No hay productos vendidos aún.'),
+      );
+    }
+
+    return Column(
+      children: topProductos.take(5).map((entry) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Text(
+                  entry.key,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text('${entry.value}', textAlign: TextAlign.right),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildVentasPorCategoria(List<_CategoriaReporte> categorias) {
+    if (categorias.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Text('No se encontraron categorías con ventas.'),
+      );
+    }
+
+    return Column(
+      children: categorias.map((categoria) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${categoria.categoria} · ${categoria.cantidad} unidades · \$${categoria.total.toStringAsFixed(2)}',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 6),
+              LinearProgressIndicator(
+                value: categorias.first.total > 0
+                    ? categoria.total / categorias.first.total
+                    : 0,
+                minHeight: 6,
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildProductosBajaRotacion(List<_ProductoBajaRotacion> bajaRotacion) {
+    if (bajaRotacion.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Text('No hay productos para analizar rotación.'),
+      );
+    }
+
+    return Column(
+      children: bajaRotacion.map((item) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.nombre,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      '${item.categoria} · Stock: ${item.stock}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text('${item.vendido}', textAlign: TextAlign.right),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  List<MapEntry<String, int>> _calcularTopProductos(List<Venta> ventas) {
+    final acumulados = <String, int>{};
+
+    for (final venta in ventas) {
+      for (final item in venta.items) {
+        acumulados[item.nombre] =
+            (acumulados[item.nombre] ?? 0) + item.cantidad;
+      }
+    }
+
+    final lista = acumulados.entries.toList();
+    lista.sort((a, b) => b.value.compareTo(a.value));
+    return lista;
+  }
+
+  List<_CategoriaReporte> _calcularCategorias(
+    List<Venta> ventas,
+    List<Producto> productos,
+  ) {
+    final productoPorNombre = {for (final p in productos) p.nombre: p};
+    final totales = <String, double>{};
+    final cantidades = <String, int>{};
+
+    for (final venta in ventas) {
+      for (final item in venta.items) {
+        final categoria =
+            productoPorNombre[item.nombre]?.categoria ?? 'Sin categoría';
+        totales[categoria] = (totales[categoria] ?? 0) + item.subtotal;
+        cantidades[categoria] = (cantidades[categoria] ?? 0) + item.cantidad;
+      }
+    }
+
+    final lista = totales.entries.map((entry) {
+      return _CategoriaReporte(
+        categoria: entry.key,
+        total: entry.value,
+        cantidad: cantidades[entry.key] ?? 0,
+      );
+    }).toList();
+
+    lista.sort((a, b) => b.total.compareTo(a.total));
+    return lista;
+  }
+
+  List<_ProductoBajaRotacion> _calcularProductosBajaRotacion(
+    List<Venta> ventas,
+    List<Producto> productos,
+  ) {
+    final vendidos = <String, int>{};
+    for (final venta in ventas) {
+      for (final item in venta.items) {
+        vendidos[item.nombre] = (vendidos[item.nombre] ?? 0) + item.cantidad;
+      }
+    }
+
+    final lista = productos.map((producto) {
+      return _ProductoBajaRotacion(
+        nombre: producto.nombre,
+        categoria: producto.categoria,
+        stock: producto.stock,
+        vendido: vendidos[producto.nombre] ?? 0,
+      );
+    }).toList();
+
+    lista.sort((a, b) => a.vendido.compareTo(b.vendido));
+    return lista.take(5).toList();
   }
 }
 
@@ -249,20 +535,29 @@ class _ResumenCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: color.withOpacity(.2)),
         ),
-        child: Row(children: [
-          Icon(icono, color: color, size: 32),
-          const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label,
-                style: TextStyle(
-                    fontSize: 12, color: color.withOpacity(.8))),
-            Text(valor,
-                style: TextStyle(
+        child: Row(
+          children: [
+            Icon(icono, color: color, size: 32),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: color.withOpacity(.8)),
+                ),
+                Text(
+                  valor,
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: color)),
-          ]),
-        ]),
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
