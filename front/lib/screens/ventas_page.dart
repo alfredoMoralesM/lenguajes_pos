@@ -20,20 +20,12 @@ class _VentasPageState extends State<VentasPage> {
   Future<List<Producto>> _futureProductos = Future.value([]);
   final List<_ItemCarrito> _carrito = [];
   bool _procesando = false;
-  String _busqueda = '';
-  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     // initState NO es async — asignación directa sin setState
     _futureProductos = ApiService.obtenerProductos();
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
   }
 
   void _cargar() {
@@ -160,42 +152,11 @@ class _VentasPageState extends State<VentasPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Row(
-                  children: [
-                    Text("Productos",
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchCtrl,
-                        decoration: InputDecoration(
-                          hintText: "Buscar producto...",
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          suffixIcon: _busqueda.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.close, size: 18),
-                                  onPressed: () {
-                                    _searchCtrl.clear();
-                                    setState(() => _busqueda = '');
-                                  },
-                                )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          isDense: true,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        onChanged: (v) =>
-                            setState(() => _busqueda = v.toLowerCase()),
-                      ),
-                    ),
-                  ],
-                ),
+                child: Text("Productos",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold)),
               ),
               Expanded(
                 child: FutureBuilder<List<Producto>>(
@@ -211,38 +172,6 @@ class _VentasPageState extends State<VentasPage> {
                     if (lista.isEmpty) {
                       return const Center(child: Text("Sin productos registrados"));
                     }
-                    // Filtrar por búsqueda (nombre o categoría)
-                    final listaFiltrada = _busqueda.isEmpty
-                        ? lista
-                        : lista
-                            .where((p) =>
-                                p.nombre.toLowerCase().contains(_busqueda) ||
-                                p.categoria.toLowerCase().contains(_busqueda))
-                            .toList();
-                    if (listaFiltrada.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.search_off,
-                                size: 48,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withOpacity(.3)),
-                            const SizedBox(height: 8),
-                            Text(
-                              "Sin resultados para \"$_busqueda\"",
-                              style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withOpacity(.5)),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
                     return GridView.builder(
                       padding: const EdgeInsets.all(12),
                       gridDelegate:
@@ -252,9 +181,9 @@ class _VentasPageState extends State<VentasPage> {
                         crossAxisSpacing: 10,
                         mainAxisSpacing: 10,
                       ),
-                      itemCount: listaFiltrada.length,
+                      itemCount: lista.length,
                       itemBuilder: (ctx, i) {
-                        final p = listaFiltrada[i];
+                        final p = lista[i];
                         final sinStock = p.stock == 0;
                         return GestureDetector(
                           onTap: sinStock ? null : () => _agregar(p),
