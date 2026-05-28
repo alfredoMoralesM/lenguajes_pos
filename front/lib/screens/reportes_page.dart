@@ -39,6 +39,100 @@ class _CategoriaReporte {
   });
 }
 
+// ── Clases de apoyo para gráficas ────────────────────────────
+
+class _Porcion {
+  final double valor; // 0.0 – 1.0
+  final Color color;
+  const _Porcion({required this.valor, required this.color});
+}
+
+class _PiePainter extends CustomPainter {
+  final List<_Porcion> porciones;
+  const _PiePainter({required this.porciones});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = cx < cy ? cx : cy;
+    const gap = 0.03;
+
+    double startAngle = -1.5707963; // -π/2
+    for (final p in porciones) {
+      final sweep = (p.valor * 6.2831853) - gap;
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(cx, cy), radius: r),
+        startAngle,
+        sweep,
+        true,
+        Paint()
+          ..color = p.color
+          ..style = PaintingStyle.fill,
+      );
+      startAngle += sweep + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PiePainter old) => old.porciones != porciones;
+}
+
+class _LinePainter extends CustomPainter {
+  final List<double> puntos;
+  final Color color;
+  const _LinePainter({required this.puntos, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (puntos.length < 2) return;
+
+    final maxY = puntos.last;
+    final stepX = size.width / (puntos.length - 1);
+
+    // Área bajo la línea
+    final areaPath = Path();
+    areaPath.moveTo(0, size.height);
+    for (int i = 0; i < puntos.length; i++) {
+      final x = i * stepX;
+      final y = size.height - (puntos[i] / maxY) * size.height;
+      areaPath.lineTo(x, y);
+    }
+    areaPath.lineTo(size.width, size.height);
+    areaPath.close();
+    canvas.drawPath(areaPath, Paint()..color = color.withOpacity(0.12));
+
+    // Línea principal
+    final linePath = Path();
+    for (int i = 0; i < puntos.length; i++) {
+      final x = i * stepX;
+      final y = size.height - (puntos[i] / maxY) * size.height;
+      i == 0 ? linePath.moveTo(x, y) : linePath.lineTo(x, y);
+    }
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Puntos
+    for (int i = 0; i < puntos.length; i++) {
+      final x = i * stepX;
+      final y = size.height - (puntos[i] / maxY) * size.height;
+      canvas.drawCircle(Offset(x, y), 3, Paint()..color = color);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LinePainter old) => old.puntos != puntos;
+}
+
+// ── Widget principal ─────────────────────────────────────────
+
 class ReportesPage extends StatefulWidget {
   const ReportesPage({super.key});
   @override
@@ -83,7 +177,10 @@ class _ReportesPageState extends State<ReportesPage> {
     }
   }
 
-  List<Venta> _filtrarPorPeriodo(List<Venta> ventas, _PeriodoReporte periodo) {
+  List<Venta> _filtrarPorPeriodo(
+    List<Venta> ventas,
+    _PeriodoReporte periodo,
+  ) {
     if (periodo == _PeriodoReporte.all) return ventas;
     final ahora = DateTime.now();
     final desde = ahora.subtract(
@@ -103,6 +200,8 @@ class _ReportesPageState extends State<ReportesPage> {
     }
   }
 
+  // ── build ──────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -115,9 +214,9 @@ class _ReportesPageState extends State<ReportesPage> {
             children: [
               Text(
                 "Analítica de Reportes",
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Spacer(),
               OutlinedButton.icon(
@@ -173,7 +272,9 @@ class _ReportesPageState extends State<ReportesPage> {
                       const SizedBox(height: 12),
                       Text(
                         "Aún no hay datos de ventas ni productos",
-                        style: TextStyle(color: cs.onSurface.withOpacity(.4)),
+                        style: TextStyle(
+                          color: cs.onSurface.withOpacity(.4),
+                        ),
                       ),
                     ],
                   ),
@@ -186,6 +287,7 @@ class _ReportesPageState extends State<ReportesPage> {
                   vertical: 12,
                 ),
                 children: [
+                  // ── Tarjetas de resumen ──────────────────
                   Row(
                     children: [
                       _ResumenCard(
@@ -204,19 +306,40 @@ class _ReportesPageState extends State<ReportesPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Ventas por período ───────────────────
                   _buildSectionTitle("Ventas por período"),
                   _buildPeriodoChips(),
                   const SizedBox(height: 12),
                   _buildVentasPorPeriodo(ventasPeriod),
                   const SizedBox(height: 16),
+
+                  // ── Top productos ────────────────────────
                   _buildSectionTitle("Productos más vendidos"),
                   _buildTopProductos(topProductos),
                   const SizedBox(height: 16),
+
+                  // ── Ventas por categoría ─────────────────
                   _buildSectionTitle("Ventas por categoría"),
                   _buildVentasPorCategoria(categorias),
                   const SizedBox(height: 16),
+
+                  // ── Baja rotación ────────────────────────
                   _buildSectionTitle("Productos de baja rotación"),
                   _buildProductosBajaRotacion(bajaRotacion),
+                  const SizedBox(height: 24),
+
+                  // ── GRÁFICAS ─────────────────────────────
+                  _buildSectionTitle("Ingresos por día"),
+                  _buildBarChart(ventasPeriod),
+                  const SizedBox(height: 16),
+
+                  _buildSectionTitle("Distribución por categoría"),
+                  _buildPieChart(categorias),
+                  const SizedBox(height: 16),
+
+                  _buildSectionTitle("Tendencia acumulada"),
+                  _buildLineChart(ventasPeriod),
                   const SizedBox(height: 24),
                 ],
               );
@@ -226,6 +349,8 @@ class _ReportesPageState extends State<ReportesPage> {
       ],
     );
   }
+
+  // ── Helpers de sección ────────────────────────────────────
 
   Widget _buildSectionTitle(String text) {
     return Padding(
@@ -245,11 +370,7 @@ class _ReportesPageState extends State<ReportesPage> {
           label: Text(_textoPeriodo(periodo)),
           selected: _periodoSeleccionado == periodo,
           onSelected: (selected) {
-            if (selected) {
-              setState(() {
-                _periodoSeleccionado = periodo;
-              });
-            }
+            if (selected) setState(() => _periodoSeleccionado = periodo);
           },
         );
       }).toList(),
@@ -263,8 +384,10 @@ class _ReportesPageState extends State<ReportesPage> {
     for (final venta in ventasPeriod) {
       final fecha = venta.fecha;
       final etiqueta = '${fecha.day}/${fecha.month}';
-      ingresosPorDia[etiqueta] = (ingresosPorDia[etiqueta] ?? 0) + venta.total;
-      cantidadesPorDia[etiqueta] = (cantidadesPorDia[etiqueta] ?? 0) + 1;
+      ingresosPorDia[etiqueta] =
+          (ingresosPorDia[etiqueta] ?? 0) + venta.total;
+      cantidadesPorDia[etiqueta] =
+          (cantidadesPorDia[etiqueta] ?? 0) + 1;
     }
 
     if (ventasPeriod.isEmpty) {
@@ -280,7 +403,8 @@ class _ReportesPageState extends State<ReportesPage> {
     }
 
     final dias = ingresosPorDia.keys.toList();
-    final totalIngresosDia = ingresosPorDia.values.fold(0.0, (a, b) => a + b);
+    final totalIngresosDia =
+        ingresosPorDia.values.fold(0.0, (a, b) => a + b);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +417,8 @@ class _ReportesPageState extends State<ReportesPage> {
             borderRadius: BorderRadius.circular(14),
           ),
           child: Text(
-            'Mostrando ${ventasPeriod.length} ventas para ${_textoPeriodo(_periodoSeleccionado)}',
+            'Mostrando ${ventasPeriod.length} ventas para '
+            '${_textoPeriodo(_periodoSeleccionado)}',
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
         ),
@@ -307,11 +432,13 @@ class _ReportesPageState extends State<ReportesPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$dia · ${cantidad} ventas · \$${ingresos.toStringAsFixed(2)}',
+                  '$dia · $cantidad ventas · \$${ingresos.toStringAsFixed(2)}',
                 ),
                 const SizedBox(height: 6),
                 LinearProgressIndicator(
-                  value: totalIngresosDia > 0 ? ingresos / totalIngresosDia : 0,
+                  value: totalIngresosDia > 0
+                      ? ingresos / totalIngresosDia
+                      : 0,
                   minHeight: 6,
                 ),
               ],
@@ -350,7 +477,10 @@ class _ReportesPageState extends State<ReportesPage> {
               ),
               Expanded(
                 flex: 2,
-                child: Text('${entry.value}', textAlign: TextAlign.right),
+                child: Text(
+                  '${entry.value}',
+                  textAlign: TextAlign.right,
+                ),
               ),
             ],
           ),
@@ -380,7 +510,8 @@ class _ReportesPageState extends State<ReportesPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${categoria.categoria} · ${categoria.cantidad} unidades · \$${categoria.total.toStringAsFixed(2)}',
+                '${categoria.categoria} · ${categoria.cantidad} unidades '
+                '· \$${categoria.total.toStringAsFixed(2)}',
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 6),
@@ -397,7 +528,9 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  Widget _buildProductosBajaRotacion(List<_ProductoBajaRotacion> bajaRotacion) {
+  Widget _buildProductosBajaRotacion(
+    List<_ProductoBajaRotacion> bajaRotacion,
+  ) {
     if (bajaRotacion.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -427,14 +560,20 @@ class _ReportesPageState extends State<ReportesPage> {
                     ),
                     Text(
                       '${item.categoria} · Stock: ${item.stock}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
                     ),
                   ],
                 ),
               ),
               Expanded(
                 flex: 2,
-                child: Text('${item.vendido}', textAlign: TextAlign.right),
+                child: Text(
+                  '${item.vendido}',
+                  textAlign: TextAlign.right,
+                ),
               ),
             ],
           ),
@@ -443,16 +582,249 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
+  // ── Gráficas ───────────────────────────────────────────────
+
+  Widget _buildBarChart(List<Venta> ventasPeriod) {
+    if (ventasPeriod.isEmpty) {
+      return _emptyChart('No hay ventas en este período.');
+    }
+
+    final ingresosPorDia = <String, double>{};
+    for (final v in ventasPeriod) {
+      final key = '${v.fecha.day}/${v.fecha.month}';
+      ingresosPorDia[key] = (ingresosPorDia[key] ?? 0) + v.total;
+    }
+
+    final dias = ingresosPorDia.keys.toList();
+    final maxVal =
+        ingresosPorDia.values.fold(0.0, (a, b) => a > b ? a : b);
+
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (ctx, constraints) {
+                final barW =
+                    (constraints.maxWidth / dias.length) - 8;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: dias.map((dia) {
+                    final val = ingresosPorDia[dia]!;
+                    final ratio = maxVal > 0 ? val / maxVal : 0.0;
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          '\$${val.toStringAsFixed(0)}',
+                          style: const TextStyle(fontSize: 9),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 3),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeOut,
+                          width: barW.clamp(8.0, 48.0),
+                          height:
+                              (constraints.maxHeight - 28) * ratio,
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(4),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: dias
+                .map(
+                  (d) => Text(
+                    d,
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: Colors.grey,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPieChart(List<_CategoriaReporte> categorias) {
+    if (categorias.isEmpty) {
+      return _emptyChart('No hay categorías con ventas.');
+    }
+
+    final total = categorias.fold(0.0, (s, c) => s + c.total);
+    const colores = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.red,
+      Colors.amber,
+      Colors.cyan,
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 130,
+            height: 130,
+            child: CustomPaint(
+              painter: _PiePainter(
+                porciones: categorias
+                    .asMap()
+                    .entries
+                    .map(
+                      (e) => _Porcion(
+                        valor: e.value.total / total,
+                        color: colores[e.key % colores.length],
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: categorias.asMap().entries.map((e) {
+                final pct =
+                    (e.value.total / total * 100).toStringAsFixed(1);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: colores[e.key % colores.length],
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          e.value.categoria,
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '$pct%',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineChart(List<Venta> ventasPeriod) {
+    if (ventasPeriod.isEmpty) {
+      return _emptyChart('No hay ventas en este período.');
+    }
+
+    final ventasOrdenadas = [...ventasPeriod]
+      ..sort((a, b) => a.fecha.compareTo(b.fecha));
+
+    double acumulado = 0;
+    final puntos = ventasOrdenadas.map((v) {
+      acumulado += v.total;
+      return acumulado;
+    }).toList();
+
+    return Container(
+      height: 170,
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Total acumulado: \$${acumulado.toStringAsFixed(2)}',
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: CustomPaint(
+              painter: _LinePainter(
+                puntos: puntos,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              size: Size.infinite,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyChart(String mensaje) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Text(mensaje),
+    );
+  }
+
+  // ── Cálculos ───────────────────────────────────────────────
+
   List<MapEntry<String, int>> _calcularTopProductos(List<Venta> ventas) {
     final acumulados = <String, int>{};
-
     for (final venta in ventas) {
       for (final item in venta.items) {
         acumulados[item.nombre] =
             (acumulados[item.nombre] ?? 0) + item.cantidad;
       }
     }
-
     final lista = acumulados.entries.toList();
     lista.sort((a, b) => b.value.compareTo(a.value));
     return lista;
@@ -471,7 +843,8 @@ class _ReportesPageState extends State<ReportesPage> {
         final categoria =
             productoPorNombre[item.nombre]?.categoria ?? 'Sin categoría';
         totales[categoria] = (totales[categoria] ?? 0) + item.subtotal;
-        cantidades[categoria] = (cantidades[categoria] ?? 0) + item.cantidad;
+        cantidades[categoria] =
+            (cantidades[categoria] ?? 0) + item.cantidad;
       }
     }
 
@@ -494,7 +867,8 @@ class _ReportesPageState extends State<ReportesPage> {
     final vendidos = <String, int>{};
     for (final venta in ventas) {
       for (final item in venta.items) {
-        vendidos[item.nombre] = (vendidos[item.nombre] ?? 0) + item.cantidad;
+        vendidos[item.nombre] =
+            (vendidos[item.nombre] ?? 0) + item.cantidad;
       }
     }
 
@@ -511,6 +885,8 @@ class _ReportesPageState extends State<ReportesPage> {
     return lista.take(5).toList();
   }
 }
+
+// ── Tarjeta de resumen ────────────────────────────────────────
 
 class _ResumenCard extends StatelessWidget {
   final String label;
@@ -544,7 +920,10 @@ class _ResumenCard extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontSize: 12, color: color.withOpacity(.8)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: color.withOpacity(.8),
+                  ),
                 ),
                 Text(
                   valor,

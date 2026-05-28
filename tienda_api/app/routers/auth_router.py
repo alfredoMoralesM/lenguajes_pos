@@ -5,7 +5,7 @@ router = APIRouter()
 
 # Credenciales del administrador (en producción usa variables de entorno + hash)
 ADMIN_USER = "admin"
-ADMIN_PASSWORD = "pos2024"
+ADMIN_PASSWORD = "pos2026"
 
 class LoginRequest(BaseModel):
     usuario: str
