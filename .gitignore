@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.env
+
+# SQLite
+*.db
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
