@@ -139,13 +139,6 @@ try:
     deleted = db.query(Producto).delete()
     print(f"🗑️  {deleted} producto(s) eliminado(s).")
 
-    # 2. Resetear el autoincrement de SQLite para que los IDs empiecen en 1
-    db.execute(
-        __import__("sqlalchemy").text(
-            "DELETE FROM sqlite_sequence WHERE name='productos'"
-        )
-    )
-
     # 3. Insertar catálogo nuevo
     db.bulk_save_objects(PRODUCTOS)
     db.commit()
