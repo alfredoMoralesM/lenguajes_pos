@@ -27,7 +27,7 @@ Instala los siguientes programas **antes** de continuar. Todos son gratuitos.
 - Verifica en terminal: `python --version`
 
 ### 🎯 Flutter SDK
-- Descarga: https://docs.flutter.dev/get-started/install/windows
+- En: https://docs.flutter.dev/get-started/install/windows dirigete a 'Custom Setup' . -> 'Install Manually'. Descarga el ZIP.
 - Extrae el ZIP en `C:\flutter` (sin espacios en la ruta)
 - Agrega `C:\flutter\bin` a la variable de entorno `PATH`
 - Verifica en terminal: `flutter --version`
@@ -88,11 +88,13 @@ pos_system/
 
 ### 3.1 Instalar dependencias
 
-Abre una terminal en la carpeta `tienda_api/` y ejecuta:
+Abre una terminal en la carpeta `tienda_api/` del proyecto y ejecuta:
 
 ```bash
 # Crear entorno virtual (recomendado)
 python -m venv venv
+o
+py -m venv venv
 
 # Activar el entorno virtual
 venv\Scripts\activate
@@ -118,10 +120,11 @@ Deberías ver:
 ```bash
 uvicorn main:app --reload --port 8000
 ```
+Puedes verificar que todo se inicio correctamente con lo siguiente:
 
-El servidor estará disponible en: **http://localhost:8000**
+Servidor: **http://localhost:8000**
 
-Puedes explorar la API en: **http://localhost:8000/docs**
+API: **http://localhost:8000/docs**
 
 ---
 
@@ -129,7 +132,7 @@ Puedes explorar la API en: **http://localhost:8000/docs**
 
 ### 4.1 Instalar dependencias de Flutter
 
-Abre una terminal en la carpeta `front/` y ejecuta:
+Abre otra terminal en la carpeta `front/` del proyecto y ejecuta:
 
 ```bash
 flutter pub get
