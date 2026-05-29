@@ -16,7 +16,6 @@ class VentasPage extends StatefulWidget {
 }
 
 class _VentasPageState extends State<VentasPage> {
-  // FIX DEFINITIVO: inicializar directamente sin setState en initState
   Future<List<Producto>> _futureProductos = Future.value([]);
   final List<_ItemCarrito> _carrito = [];
   bool _procesando = false;
@@ -37,8 +36,6 @@ class _VentasPageState extends State<VentasPage> {
   }
 
   void _cargar() {
-    // Asignar el Future directamente dentro de setState es seguro
-    // porque Future.value() es síncrono — no hay async en el callback
     setState(() {
       _futureProductos = ApiService.obtenerProductos();
     });
@@ -152,7 +149,6 @@ class _VentasPageState extends State<VentasPage> {
 
     return Row(
       children: [
-        // ── Catálogo ───────────────────────────────────────────────────
         Expanded(
           flex: 3,
           child: Column(
@@ -211,7 +207,7 @@ class _VentasPageState extends State<VentasPage> {
                     if (lista.isEmpty) {
                       return const Center(child: Text("Sin productos registrados"));
                     }
-                    // Filtrar por búsqueda (nombre o categoría)
+                    //Filtra por nombre o categoría
                     final listaFiltrada = _busqueda.isEmpty
                         ? lista
                         : lista
@@ -324,7 +320,7 @@ class _VentasPageState extends State<VentasPage> {
           ),
         ),
 
-        // ── Carrito ────────────────────────────────────────────────────
+        //Carrito
         Container(
           width: 300,
           decoration: BoxDecoration(

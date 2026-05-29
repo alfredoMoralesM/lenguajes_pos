@@ -13,8 +13,6 @@ from app.models.venta_model import Venta, VentaItem
 
 router = APIRouter()
 
-# ── Schemas ────────────────────────────────────────────────────────────────────
-
 class ItemCarrito(BaseModel):
     producto_id: int
     cantidad: int
@@ -22,7 +20,6 @@ class ItemCarrito(BaseModel):
 class VentaRequest(BaseModel):
     items: List[ItemCarrito]
 
-# ── POST /ventas — confirmar venta ────────────────────────────────────────────
 @router.post("/ventas", status_code=201)
 def confirmar_venta(data: VentaRequest, db: Session = Depends(get_db)):
     if not data.items:
@@ -44,10 +41,9 @@ def confirmar_venta(data: VentaRequest, db: Session = Depends(get_db)):
         total += subtotal
         items_procesados.append((producto, item.cantidad, subtotal))
 
-    # Persistir venta
     venta = Venta(total=total)
     db.add(venta)
-    db.flush()  # obtener venta.id antes del commit
+    db.flush() 
 
     for producto, cantidad, subtotal in items_procesados:
         db.add(VentaItem(
@@ -73,7 +69,6 @@ def confirmar_venta(data: VentaRequest, db: Session = Depends(get_db)):
         ]
     }
 
-# ── GET /ventas — historial ───────────────────────────────────────────────────
 @router.get("/ventas")
 def historial_ventas(db: Session = Depends(get_db)):
     ventas = db.query(Venta).order_by(Venta.fecha.desc()).all()
@@ -95,7 +90,7 @@ def historial_ventas(db: Session = Depends(get_db)):
         })
     return resultado
 
-# ── GET /ventas/exportar — CSV ────────────────────────────────────────────────
+# CSV 
 @router.get("/ventas/exportar")
 def exportar_ventas_csv(db: Session = Depends(get_db)):
     ventas = db.query(Venta).order_by(Venta.fecha.desc()).all()

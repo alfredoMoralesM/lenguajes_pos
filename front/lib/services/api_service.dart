@@ -14,7 +14,7 @@ class ApiService {
         if (_token.isNotEmpty) "Authorization": "Bearer $_token",
       };
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
+  //Auth
   static Future<void> login(String usuario, String password) async {
     final r = await http.post(
       Uri.parse("$baseUrl/login"),
@@ -31,7 +31,7 @@ class ApiService {
   static void logout() => _token = "";
   static bool get isLoggedIn => _token.isNotEmpty;
 
-  // ── Productos ─────────────────────────────────────────────────────────────
+  //Productos
   static Future<List<Producto>> obtenerProductos() async {
     final r = await http.get(Uri.parse("$baseUrl/productos"), headers: _headers);
     if (r.statusCode == 200) {
@@ -74,7 +74,7 @@ class ApiService {
     if (r.statusCode != 200) throw Exception("Error al eliminar producto");
   }
 
-  // ── Ventas ────────────────────────────────────────────────────────────────
+  //Ventas
   static Future<Map<String, dynamic>> confirmarVenta(
       List<Map<String, int>> items) async {
     final r = await http.post(

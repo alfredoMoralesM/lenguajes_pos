@@ -1,18 +1,18 @@
 from fastapi import APIRouter, HTTPException, Depends, Body, status
 from sqlalchemy.orm import Session
-from app.database.connection import get_db          # FIX: usar Depends en vez de SessionLocal() manual
+from app.database.connection import get_db         
 from app.models.producto_model import Producto
 
 router = APIRouter()
 
 
-# ─── GET /productos ────────────────────────────────────────────────────────────
+# GET productos
 @router.get("/productos", summary="Listar todos los productos")
 def obtener_productos(db: Session = Depends(get_db)):  # FIX: inyección de sesión
     return db.query(Producto).all()
 
 
-# ─── GET /productos/{id} ───────────────────────────────────────────────────────
+# GET productos{id} 
 @router.get("/productos/{id}", summary="Obtener un producto por ID")
 def obtener_producto(id: int, db: Session = Depends(get_db)):
     producto = db.query(Producto).filter(Producto.id == id).first()
@@ -23,7 +23,7 @@ def obtener_producto(id: int, db: Session = Depends(get_db)):
     return producto
 
 
-# ─── POST /productos ───────────────────────────────────────────────────────────
+# POST /productos
 @router.post(
     "/productos",
     status_code=status.HTTP_201_CREATED,   # FIX: 201 Created (antes devolvía 200)
@@ -50,7 +50,7 @@ def crear_producto(
     return nuevo_producto
 
 
-# ─── PUT /productos/{id} ───────────────────────────────────────────────────────
+# PUT /productos/{id} 
 @router.put("/productos/{id}", summary="Actualizar un producto completo")
 def actualizar_producto(
     id: int,
@@ -76,7 +76,7 @@ def actualizar_producto(
     return producto
 
 
-# ─── PUT /productos/{id}/stock ─────────────────────────────────────────────────
+# PUT /productos/{id}/stock
 @router.put("/productos/{id}/stock", summary="Descontar 1 unidad del stock (venta)")
 def restar_stock(id: int, db: Session = Depends(get_db)):
     # FIX: antes el bloque try tenía indentación incorrecta
@@ -99,7 +99,7 @@ def restar_stock(id: int, db: Session = Depends(get_db)):
     }
 
 
-# ─── DELETE /productos/{id} ────────────────────────────────────────────────────
+# DELETE /productos/{id} 
 @router.delete(
     "/productos/{id}",
     status_code=status.HTTP_200_OK,
