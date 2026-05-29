@@ -42,7 +42,10 @@ Instala los siguientes programas **antes** de continuar. Todos son gratuitos.
 
 ## 2. Estructura del Proyecto
 
-Organiza los archivos en esta estructura de carpetas:
+Antes de iniciar, se debe clonar y descargar el repositorio desde GitHub para obtener la estructura completa del proyecto:
+
+git clone https://github.com/alfredoMoralesM/lenguajes_pos.git
+
 
 ```
 pos_system/
