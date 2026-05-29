@@ -40,8 +40,6 @@ class _HomePageState extends State<HomePage> {
     final cs     = Theme.of(context).colorScheme;
     final isWide = MediaQuery.of(context).size.width > 600;
 
-    // Layout horizontal en pantallas anchas (tablet/desktop),
-    // BottomNavigationBar en móvil
     if (isWide) {
       return Scaffold(
         body: Row(

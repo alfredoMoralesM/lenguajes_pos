@@ -39,8 +39,6 @@ class _CategoriaReporte {
   });
 }
 
-// ── Clases de apoyo para gráficas ────────────────────────────
-
 class _Porcion {
   final double valor; // 0.0 – 1.0
   final Color color;
@@ -131,7 +129,6 @@ class _LinePainter extends CustomPainter {
   bool shouldRepaint(_LinePainter old) => old.puntos != puntos;
 }
 
-// ── Widget principal ─────────────────────────────────────────
 
 class ReportesPage extends StatefulWidget {
   const ReportesPage({super.key});
@@ -200,7 +197,6 @@ class _ReportesPageState extends State<ReportesPage> {
     }
   }
 
-  // ── build ──────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +283,6 @@ class _ReportesPageState extends State<ReportesPage> {
                   vertical: 12,
                 ),
                 children: [
-                  // ── Tarjetas de resumen ──────────────────
                   Row(
                     children: [
                       _ResumenCard(
@@ -307,29 +302,24 @@ class _ReportesPageState extends State<ReportesPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // ── Ventas por período ───────────────────
                   _buildSectionTitle("Ventas por período"),
                   _buildPeriodoChips(),
                   const SizedBox(height: 12),
                   _buildVentasPorPeriodo(ventasPeriod),
                   const SizedBox(height: 16),
 
-                  // ── Top productos ────────────────────────
                   _buildSectionTitle("Productos más vendidos"),
                   _buildTopProductos(topProductos),
                   const SizedBox(height: 16),
 
-                  // ── Ventas por categoría ─────────────────
                   _buildSectionTitle("Ventas por categoría"),
                   _buildVentasPorCategoria(categorias),
                   const SizedBox(height: 16),
 
-                  // ── Baja rotación ────────────────────────
                   _buildSectionTitle("Productos de baja rotación"),
                   _buildProductosBajaRotacion(bajaRotacion),
                   const SizedBox(height: 24),
 
-                  // ── GRÁFICAS ─────────────────────────────
                   _buildSectionTitle("Ingresos por día"),
                   _buildBarChart(ventasPeriod),
                   const SizedBox(height: 16),
@@ -350,7 +340,6 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  // ── Helpers de sección ────────────────────────────────────
 
   Widget _buildSectionTitle(String text) {
     return Padding(
@@ -582,7 +571,6 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  // ── Gráficas ───────────────────────────────────────────────
 
   Widget _buildBarChart(List<Venta> ventasPeriod) {
     if (ventasPeriod.isEmpty) {
@@ -815,8 +803,6 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  // ── Cálculos ───────────────────────────────────────────────
-
   List<MapEntry<String, int>> _calcularTopProductos(List<Venta> ventas) {
     final acumulados = <String, int>{};
     for (final venta in ventas) {
@@ -886,7 +872,6 @@ class _ReportesPageState extends State<ReportesPage> {
   }
 }
 
-// ── Tarjeta de resumen ────────────────────────────────────────
 
 class _ResumenCard extends StatelessWidget {
   final String label;

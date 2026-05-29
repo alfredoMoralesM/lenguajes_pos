@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/producto.dart';
 
-/// Sirve tanto para AGREGAR como para EDITAR un producto.
-/// Si se pasa [producto], la pantalla entra en modo edición.
 class AgregarProductoPage extends StatefulWidget {
   final Producto? producto; // FIX: soporte para edición
 
@@ -14,7 +12,7 @@ class AgregarProductoPage extends StatefulWidget {
 }
 
 class _AgregarProductoPageState extends State<AgregarProductoPage> {
-  final _formKey = GlobalKey<FormState>(); // FIX: validación con Form
+  final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController nombreController;
   late final TextEditingController precioController;
@@ -47,14 +45,12 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
       
       setState(() {
         _productosExistentes = productos;
-        // Extraemos categorias únicas y evitamos vacias
         _categorias = productos
             .map((p) => p.categoria)
             .where((c) => c.trim().isNotEmpty)
             .toSet()
             .toList();
 
-        // Configurar la categoria inicial seleccionada
         if (esEdicion) {
           if (_categorias.contains(widget.producto!.categoria)) {
             _categoriaSeleccionada = widget.producto!.categoria;
@@ -80,12 +76,11 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
   }
 
   Future<void> guardarProducto() async {
-    // FIX: validar antes de enviar
     if (!_formKey.currentState!.validate()) return;
 
     final nombreIngresado = nombreController.text.trim();
 
-    //Valida que el nombre del producto no exista ya
+    //Valida que el nombre del producto no exista
     if (!esEdicion) {
       final existeProducto = _productosExistentes.any(
           (p) => p.nombre.toLowerCase() == nombreIngresado.toLowerCase());
@@ -101,7 +96,6 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
       }
     }
 
-    //Determinar la categoria final y validar si la nueva ya existia
     String categoriaFinal;
     if (_esNuevaCategoria) {
       categoriaFinal = _nuevaCategoriaController.text.trim();
@@ -159,7 +153,6 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
     }
   }
 
-  // Widget auxiliar para no repetir código en cada TextField
   Widget _campo({
     required TextEditingController controller,
     required String label,
@@ -218,7 +211,6 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
                   return null;
                 },
               ),
-              //Menu Categorias
                 Padding(
                   padding: const EdgeInsets.only(bottom: 15),
                   child: DropdownButtonFormField<String>(

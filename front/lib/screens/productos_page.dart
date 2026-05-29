@@ -10,7 +10,6 @@ class ProductosPage extends StatefulWidget {
 }
 
 class _ProductosPageState extends State<ProductosPage> {
-  // FIX DEFINITIVO: inicializar directamente sin setState en initState
   Future<List<Producto>> _futureProductos = Future.value([]);
   String _busqueda = '';
   String _categoriaSeleccionada = 'Todas';
@@ -18,7 +17,6 @@ class _ProductosPageState extends State<ProductosPage> {
   @override
   void initState() {
     super.initState();
-    // Asignación directa — sin setState, sin async
     _futureProductos = ApiService.obtenerProductos();
   }
 

@@ -18,6 +18,5 @@ class LoginResponse(BaseModel):
 @router.post("/login", response_model=LoginResponse)
 def login(data: LoginRequest):
     if data.usuario == ADMIN_USER and data.password == ADMIN_PASSWORD:
-        # Token simple — en producción usa JWT
         return {"token": "pos-admin-token-seguro", "mensaje": "Bienvenido"}
     raise HTTPException(status_code=401, detail="Credenciales incorrectas")
